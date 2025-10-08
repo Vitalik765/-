@@ -1,1 +1,81 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Генератор паролей</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 Генератор паролей</h1>
+            <p>Создавайте безопасные пароли за секунды</p>
+        </header>
 
+        <main class="generator">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="length">Длина пароля:</label>
+                    <input type="range" id="length" min="4" max="50" value="12">
+                    <span id="length-value">12</span>
+                </div>
+
+                <div class="control-group">
+                    <label for="complexity">Сложность:</label>
+                    <select id="complexity">
+                        <option value="low">Низкая (только буквы)</option>
+                        <option value="medium" selected>Средняя (буквы + цифры)</option>
+                        <option value="high">Высокая (буквы + цифры + символы)</option>
+                        <option value="very-high">Очень высокая (все символы)</option>
+                    </select>
+                </div>
+
+                <div class="options">
+                    <label class="checkbox">
+                        <input type="checkbox" id="uppercase" checked>
+                        <span class="checkmark"></span>
+                        Верхний регистр (A-Z)
+                    </label>
+                    <label class="checkbox">
+                        <input type="checkbox" id="lowercase" checked>
+                        <span class="checkmark"></span>
+                        Нижний регистр (a-z)
+                    </label>
+                    <label class="checkbox">
+                        <input type="checkbox" id="numbers" checked>
+                        <span class="checkmark"></span>
+                        Цифры (0-9)
+                    </label>
+                    <label class="checkbox">
+                        <input type="checkbox" id="symbols">
+                        <span class="checkmark"></span>
+                        Символы (!@#$%^&*)
+                    </label>
+                </div>
+
+                <button id="generate" class="generate-btn">Сгенерировать пароль</button>
+                <button id="copy" class="copy-btn">Копировать</button>
+            </div>
+
+            <div class="result">
+                <div class="password-display">
+                    <input type="text" id="password" readonly>
+                    <div class="strength-meter">
+                        <div class="strength-bar"></div>
+                        <span id="strength-text">Средняя</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Сделано с ❤️ для безопасности ваших данных</p>
+        </footer>
+    </div>
+
+    <div id="notification" class="notification">Пароль скопирован!</div>
+
+    <script src="script.js"></script>
+</body>
+</html>
