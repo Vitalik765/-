@@ -1,0 +1,262 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 600px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+header {
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: white;
+    padding: 30px;
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2.5em;
+    margin-bottom: 10px;
+}
+
+header p {
+    opacity: 0.9;
+    font-size: 1.1em;
+}
+
+.generator {
+    padding: 30px;
+}
+
+.control-group {
+    margin-bottom: 25px;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+input[type="range"] {
+    width: 100%;
+    margin: 10px 0;
+}
+
+#length-value {
+    font-weight: bold;
+    color: #3498db;
+    margin-left: 10px;
+}
+
+select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+    background: white;
+    transition: border-color 0.3s;
+}
+
+select:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+.options {
+    display: grid;
+    gap: 15px;
+    margin: 25px 0;
+}
+
+.checkbox {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px 0;
+}
+
+.checkbox input {
+    margin-right: 10px;
+    transform: scale(1.2);
+}
+
+.checkmark {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    margin-right: 10px;
+    position: relative;
+    transition: all 0.3s;
+}
+
+.checkbox input:checked + .checkmark {
+    background: #3498db;
+    border-color: #3498db;
+}
+
+.checkbox input:checked + .checkmark::after {
+    content: '✓';
+    color: white;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.generate-btn, .copy-btn {
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-bottom: 10px;
+}
+
+.generate-btn {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.generate-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+}
+
+.copy-btn {
+    background: #27ae60;
+    color: white;
+}
+
+.copy-btn:hover {
+    background: #219a52;
+    transform: translateY(-2px);
+}
+
+.result {
+    margin-top: 30px;
+}
+
+.password-display {
+    position: relative;
+}
+
+#password {
+    width: 100%;
+    padding: 15px;
+    font-size: 18px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    text-align: center;
+    letter-spacing: 1px;
+    background: #f8f9fa;
+}
+
+.strength-meter {
+    margin-top: 15px;
+}
+
+.strength-bar {
+    height: 8px;
+    background: #ecf0f1;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.strength-bar::before {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 50%;
+    background: #f39c12;
+    border-radius: 4px;
+    transition: all 0.3s;
+}
+
+.strength-low .strength-bar::before {
+    width: 25%;
+    background: #e74c3c;
+}
+
+.strength-medium .strength-bar::before {
+    width: 50%;
+    background: #f39c12;
+}
+
+.strength-high .strength-bar::before {
+    width: 75%;
+    background: #3498db;
+}
+
+.strength-very-high .strength-bar::before {
+    width: 100%;
+    background: #27ae60;
+}
+
+#strength-text {
+    font-size: 14px;
+    font-weight: 600;
+    color: #7f8c8d;
+}
+
+footer {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    color: #7f8c8d;
+    border-top: 1px solid #e0e0e0;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #27ae60;
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    transform: translateX(150%);
+    transition: transform 0.3s;
+    z-index: 1000;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+@media (max-width: 768px) {
+    .container {
+        margin: 10px;
+        border-radius: 10px;
+    }
+    
+    header h1 {
+        font-size: 2em;
+    }
+    
+    .generator {
+        padding: 20px;
+    }
+}
