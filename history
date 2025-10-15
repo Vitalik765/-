@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}История паролей{% endblock %}
+{% block content %}
+<h1>История паролей</h1>
+{% if entries %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Пароль</th>
+          <th>Длина</th>
+          <th>a-z</th>
+          <th>A-Z</th>
+          <th>0-9</th>
+          <th>Симв.</th>
+          <th>Когда</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td class="mono">{{ e['password_value'] }}</td>
+          <td>{{ e['length'] }}</td>
+          <td>{{ '✓' if e['use_lower'] else '—' }}</td>
+          <td>{{ '✓' if e['use_upper'] else '—' }}</td>
+          <td>{{ '✓' if e['use_digits'] else '—' }}</td>
+          <td>{{ '✓' if e['use_symbols'] else '—' }}</td>
+          <td>{{ e['created_at'] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <p class="muted">Пока нет сохранённых паролей. Сгенерируйте первый на главной странице.</p>
+{% endif %}
+{% endblock %}
