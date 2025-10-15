@@ -1,146 +1,222 @@
-from dis import name
-
-from flask import Flask, request, jsonify, session, Response, render_template, url_for, redirect
+import os
+import sqlite3
 import secrets
-import math
-from io import StringIO
-import random
+import string
+from datetime import datetime
+from functools import wraps
+
+from flask import Flask, render_template, request, redirect, url_for, flash, session, g
+from werkzeug.security import generate_password_hash, check_password_hash
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'app.db')
+
 
 def create_app():
-    app = Flask(__name__)
-    # Секретный ключ для сессий (генерируется при старте; для production замените на постоянный)
-    app.config["SECRET_KEY"] = secrets.token_urlsafe(32)
-    app.config["SESSION_COOKIE_HTTPONLY"] = True
-    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+	app = Flask(__name__)
+	app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-change-me')
+	return app
 
-    # --- вспомогательные функции ---
 
-    CHARSETS = {
-        "lowercase": "abcdefghijklmnopqrstuvwxyz",
-        "uppercase": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-        "numbers": "0123456789",
-        "symbols": "!@#$%^&*()-_=+[]{};:,.<>/?|~"
-    }
-
-    def build_charset(uppercase: bool, lowercase: bool, numbers: bool, symbols: bool) -> str:
-        parts = []
-        if lowercase:
-            parts.append(CHARSETS["lowercase"])
-        if uppercase:
-            parts.append(CHARSETS["uppercase"])
-        if numbers:
-            parts.append(CHARSETS["numbers"])
-        if symbols:
-            parts.append(CHARSETS["symbols"])
-        return "".join(parts)
-
-    def calculate_bits(charset_size: int, length: int) -> float:
-        if charset_size <= 0 or length <= 0:
-            return 0.0
-        return length * math.log2(charset_size)
-
-    def score_percent_from_bits(bits: float) -> int:
-        """
-        Переводим энтропию (bits) в понятный процент:
-        - <28 bits  -> слабый
-        - 28-35     -> средний
-        - 35-59     -> сильный
-        - >=60      -> отличный
-        Делаем плавную интерполяцию между границами.
-        """
-        if bits <= 0:
-            return 0
-        # Плавная шкала: 0..64 бит -> 0..100%
-        # Больше 64 бит считаем 100%
-        pct = int(min(100, round((bits / 64.0) * 100)))
-        return pct
-
-    def generate_password(length: int, uppercase: bool, lowercase: bool, numbers: bool, symbols: bool) -> str:
-        charset = build_charset(uppercase, lowercase, numbers, symbols)
-        if not charset:
-            raise ValueError("no_charsets")
-
-        # Гарантируем, что хотя бы один символ из каждого выбранного класса присутствует
-        required_chars = []
-        if lowercase:
-            required_chars.append(secrets.choice(CHARSETS["lowercase"]))
-        if uppercase:
-            required_chars.append(secrets.choice(CHARSETS["uppercase"]))
-        if numbers:
-            required_chars.append(secrets.choice(CHARSETS["numbers"]))
-        if symbols:
-            required_chars.append(secrets.choice(CHARSETS["symbols"]))
-
-        if length < len(required_chars):
-            # Невозможно включить все требуемые классы из-за слишком маленькой длины
-            # Решаем: уменьшаем список required_chars до length (оставляем первые)
-            required_chars = required_chars[:length]
-
-        # Остальные символы заполняем случайно из полного charset
-        remaining_count = length - len(required_chars)
-        pwd_chars = required_chars + [secrets.choice(charset) for _ in range(remaining_count)]
-
-        # Перемешиваем надёжно
-        sysrand = random.SystemRandom()
-        sysrand.shuffle(pwd_chars)
-
-        return "".join(pwd_chars)
-
-    # --- маршруты ---
-
-    def load_students(STUDENTS_FILE=None):
-        try:
-            with open(STUDENTS_FILE, "r", encoding="utf-8") as f:
-                return [line.strip() for line in f if line.strip()]
-        except FileNotFoundError:
-            return []
-
-    def save_students(students, STUDENTS_FILE=None):
-        with open(STUDENTS_FILE, "w", encoding="utf-8") as f:
-            for s in students:
-                f.write(s + "\n")
-
-    @app.route("/")
-    def index():
-        students = load_students()
-        return render_template("index.html", students=students)
-
-    @app.route("/add", methods=["GET", "POST"])
-    def add_student():
-        if request.method == "POST":
-            name = request.form.get("name")
-            students = load_students()
-            if name and name not in students:
-                students.append(name)
-                save_students(students)
-            return redirect(url_for("index"))
-        return render_template("add_student.html")
-
-    @app.route("/delete", methods=["GET", "POST"])
-    def delete_student():
-        students = load_students()
-        if request.method == "POST":
-            name = request.form.get("name")
-            if name in students:
-                students.remove(name)
-                save_students(students)
-            return redirect(url_for("index"))
-        return render_template("delete_student.html", students=students)
-
-    @app.route("/edit", methods=["GET", "POST"])
-    def edit_student():
-        students = load_students()
-        if request.method == "POST":
-            old_name = request.form.get("old_name")
-            new_name = request.form.get("new_name")
-            if old_name in students and new_name:
-                index = students.index(old_name)
-                students[index] = new_name
-                save_students(students)
-            return redirect(url_for("index"))
-        return render_template("edit_student.html", students=students)
 app = create_app()
 
-if name == "__main__":
-    # debug=True только для разработки
-    app.run(debug=True, host= '0.0.0.0', port=5000)
+
+# --- Database helpers (sqlite3 stdlib) ---
+
+def get_db() -> sqlite3.Connection:
+	if 'db' not in g:
+		conn = sqlite3.connect(DB_PATH)
+		conn.row_factory = sqlite3.Row
+		g.db = conn
+	return g.db
+
+
+@app.teardown_appcontext
+def close_db(exception=None):
+	conn = g.pop('db', None)
+	if conn is not None:
+		conn.close()
+
+
+def init_db() -> None:
+	conn = get_db()
+	conn.execute(
+		"""
+		CREATE TABLE IF NOT EXISTS users (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			email TEXT UNIQUE NOT NULL,
+			password_hash TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		);
+		"""
+	)
+	conn.execute(
+		"""
+		CREATE TABLE IF NOT EXISTS password_entries (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			password_value TEXT NOT NULL,
+			length INTEGER NOT NULL,
+			use_lower INTEGER NOT NULL,
+			use_upper INTEGER NOT NULL,
+			use_digits INTEGER NOT NULL,
+			use_symbols INTEGER NOT NULL,
+			created_at TEXT NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		);
+		"""
+	)
+	conn.commit()
+
+
+@app.before_request
+def ensure_db():
+	init_db()
+
+
+# --- Auth helpers (session-based) ---
+
+def login_required(view_func):
+	@wraps(view_func)
+	def wrapper(*args, **kwargs):
+		if not session.get('user_id'):
+			return redirect(url_for('login'))
+		return view_func(*args, **kwargs)
+	return wrapper
+
+
+# --- Password generator ---
+
+def generate_password(length: int, use_lower: bool, use_upper: bool, use_digits: bool, use_symbols: bool) -> str:
+	alphabet = ''
+	if use_lower:
+		alphabet += string.ascii_lowercase
+	if use_upper:
+		alphabet += string.ascii_uppercase
+	if use_digits:
+		alphabet += string.digits
+	if use_symbols:
+		alphabet += '!@#$%^&*()-_=+[]{};:,.<>/?'
+	if not alphabet:
+		raise ValueError('Нужно выбрать хотя бы один тип символов')
+	return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+# --- Routes ---
+
+@app.route('/', methods=['GET', 'POST'])
+@login_required
+def index():
+	generated = None
+	if request.method == 'POST':
+		try:
+			length = int(request.form.get('length', 12))
+			use_lower = bool(request.form.get('use_lower'))
+			use_upper = bool(request.form.get('use_upper'))
+			use_digits = bool(request.form.get('use_digits'))
+			use_symbols = bool(request.form.get('use_symbols'))
+			if length < 6 or length > 128:
+				raise ValueError('Длина должна быть от 6 до 128')
+			generated = generate_password(length, use_lower, use_upper, use_digits, use_symbols)
+			conn = get_db()
+			conn.execute(
+				"""
+				INSERT INTO password_entries (user_id, password_value, length, use_lower, use_upper, use_digits, use_symbols, created_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+				""",
+				(
+					session['user_id'],
+					generated,
+					length,
+					1 if use_lower else 0,
+					1 if use_upper else 0,
+					1 if use_digits else 0,
+					1 if use_symbols else 0,
+					datetime.utcnow().isoformat(timespec='seconds'),
+				),
+			)
+			conn.commit()
+			flash('Пароль сгенерирован и сохранен в историю', 'success')
+		except Exception as e:
+			flash(str(e), 'danger')
+	return render_template('index.html', generated=generated)
+
+
+@app.route('/history')
+@login_required
+def history():
+	conn = get_db()
+	rows = conn.execute(
+		"""
+		SELECT password_value, length, use_lower, use_upper, use_digits, use_symbols, created_at
+		FROM password_entries
+		WHERE user_id = ?
+		ORDER BY datetime(created_at) DESC
+		LIMIT 100
+		""",
+		(session['user_id'],),
+	).fetchall()
+	return render_template('history.html', entries=rows)
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+	if session.get('user_id'):
+		return redirect(url_for('index'))
+	if request.method == 'POST':
+		email = request.form.get('email', '').strip().lower()
+		password = request.form.get('password', '')
+		password2 = request.form.get('password2', '')
+		if not email or not password:
+			flash('Введите email и пароль', 'warning')
+			return render_template('register.html')
+		if password != password2:
+			flash('Пароли не совпадают', 'warning')
+			return render_template('register.html')
+		if len(password) < 6:
+			flash('Пароль должен быть не менее 6 символов', 'warning')
+			return render_template('register.html')
+		conn = get_db()
+		row = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+		if row:
+			flash('Пользователь с таким email уже существует', 'danger')
+			return render_template('register.html')
+		password_hash = generate_password_hash(password)
+		conn.execute(
+			"INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
+			(email, password_hash, datetime.utcnow().isoformat(timespec='seconds')),
+		)
+		conn.commit()
+		flash('Регистрация успешна. Теперь войдите.', 'success')
+		return redirect(url_for('login'))
+	return render_template('register.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+	if session.get('user_id'):
+		return redirect(url_for('index'))
+	if request.method == 'POST':
+		email = request.form.get('email', '').strip().lower()
+		password = request.form.get('password', '')
+		conn = get_db()
+		row = conn.execute("SELECT id, email, password_hash FROM users WHERE email = ?", (email,)).fetchone()
+		if not row or not check_password_hash(row['password_hash'], password):
+			flash('Неверные учетные данные', 'danger')
+			return render_template('login.html')
+		session['user_id'] = row['id']
+		session['user_email'] = row['email']
+		return redirect(url_for('index'))
+	return render_template('login.html')
+
+
+@app.route('/logout')
+@login_required
+def logout():
+	session.clear()
+	return redirect(url_for('login'))
+
+
+if __name__ == '__main__':
+	port = int(os.environ.get('PORT', 5656))
+	app.run(host='0.0.0.0', port=port, debug=True)
